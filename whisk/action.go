@@ -315,3 +315,93 @@ func (s *ActionService) Invoke(actionName string, payload interface{}, blocking 
 
 	return res, resp, nil
 }
+
+////////////////////
+// FmAction Methods //
+////////////////////
+
+// includes Insert, Delete and Invoke
+// for simplicity just the same implementation as above but replaced "action" to "fm-action" in the route
+
+func (s *ActionService) InsertFm(action *Action, overwrite bool) (*Action, *http.Response, error) {
+	// Encode resource name as a path (with no query params) before inserting it into the URI
+	// This way any '?' chars in the name won't be treated as the beginning of the query params
+	actionName := (&url.URL{Path: action.Name}).String()
+	route := fmt.Sprintf("fm-actions/%s?overwrite=%t", actionName, overwrite)
+	Debug(DbgInfo, "Action insert route: %s\n", route)
+
+	req, err := s.client.NewRequest("PUT", route, action, IncludeNamespaceInUrl)
+	if err != nil {
+		Debug(DbgError, "http.NewRequest(PUT, %s, %#v) error: '%s'\n", route, action, err)
+		errMsg := wski18n.T("Unable to create HTTP request for PUT '{{.route}}': {{.err}}",
+			map[string]interface{}{"route": route, "err": err})
+		whiskErr := MakeWskErrorFromWskError(errors.New(errMsg), err, EXIT_CODE_ERR_NETWORK, DISPLAY_MSG,
+			NO_DISPLAY_USAGE)
+		return nil, nil, whiskErr
+	}
+
+	a := new(Action)
+	resp, err := s.client.Do(req, &a, ExitWithSuccessOnTimeout)
+	if err != nil {
+		Debug(DbgError, "s.client.Do() error - HTTP req %s; error '%s'\n", req.URL.String(), err)
+		return nil, resp, err
+	}
+
+	return a, resp, nil
+}
+
+func (s *ActionService) DeleteFm(actionName string) (*http.Response, error) {
+	// Encode resource name as a path (with no query params) before inserting it into the URI
+	// This way any '?' chars in the name won't be treated as the beginning of the query params
+	actionName = (&url.URL{Path: actionName}).String()
+	route := fmt.Sprintf("fm-actions/%s", actionName)
+	Debug(DbgInfo, "HTTP route: %s\n", route)
+
+	req, err := s.client.NewRequest("DELETE", route, nil, IncludeNamespaceInUrl)
+	if err != nil {
+		Debug(DbgError, "http.NewRequest(DELETE, %s, nil) error: '%s'\n", route, err)
+		errMsg := wski18n.T("Unable to create HTTP request for DELETE '{{.route}}': {{.err}}",
+			map[string]interface{}{"route": route, "err": err})
+		whiskErr := MakeWskErrorFromWskError(errors.New(errMsg), err, EXIT_CODE_ERR_NETWORK, DISPLAY_MSG,
+			NO_DISPLAY_USAGE)
+		return nil, whiskErr
+	}
+
+	a := new(Action)
+	resp, err := s.client.Do(req, a, ExitWithSuccessOnTimeout)
+	if err != nil {
+		Debug(DbgError, "s.client.Do() error - HTTP req %s; error '%s'\n", req.URL.String(), err)
+		return resp, err
+	}
+
+	return resp, nil
+}
+
+func (s *ActionService) InvokeFm(actionName string, payload interface{}, blocking bool, result bool) (map[string]interface{}, *http.Response, error) {
+	var res map[string]interface{}
+
+	// Encode resource name as a path (with no query params) before inserting it into the URI
+	// This way any '?' chars in the name won't be treated as the beginning of the query params
+	actionName = (&url.URL{Path: actionName}).String()
+	route := fmt.Sprintf("fm-actions/%s?blocking=%t&result=%t", actionName, blocking, result)
+	Debug(DbgInfo, "HTTP route: %s\n", route)
+
+	req, err := s.client.NewRequest("POST", route, payload, IncludeNamespaceInUrl)
+	if err != nil {
+		Debug(DbgError, "http.NewRequest(POST, %s, %#v) error: '%s'\n", route, payload, err)
+		errMsg := wski18n.T("Unable to create HTTP request for POST '{{.route}}': {{.err}}",
+			map[string]interface{}{"route": route, "err": err})
+		whiskErr := MakeWskErrorFromWskError(errors.New(errMsg), err, EXIT_CODE_ERR_NETWORK, DISPLAY_MSG,
+			NO_DISPLAY_USAGE)
+		return nil, nil, whiskErr
+	}
+
+	resp, err := s.client.Do(req, &res, blocking)
+
+	if err != nil {
+		Debug(DbgError, "s.client.Do() error - HTTP req %s; error '%s'\n", req.URL.String(), err)
+		return res, resp, err
+	}
+
+	return res, resp, nil
+}

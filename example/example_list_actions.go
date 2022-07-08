@@ -25,6 +25,12 @@ import (
 	"github.com/apache/openwhisk-client-go/whisk"
 )
 
+type UserRequest struct {
+	model_type       string
+	use_weight       bool
+	key_service_port int
+}
+
 func main() {
 
 	client, err := whisk.NewClient(http.DefaultClient, nil)
@@ -33,18 +39,40 @@ func main() {
 		os.Exit(-1)
 	}
 
-	options := &whisk.ActionListOptions{
-		Limit: 10,
-		Skip:  0,
+	body := map[string]interface{}{
+		"name":             "world",
+		"use_weight":       true,
+		"key_service_port": 13571,
 	}
+	fmt.Printf("body: %v\n", body)
 
-	actions, resp, err := client.Actions.List("", options)
+	// create action
+	var action = new(whisk.Action)
+	// action.Name = "test"
+	action.Name = "testfm"
+	action.Namespace = "_"
+	concurrency := 1
+	action.Limits = &whisk.Limits{Concurrency: &concurrency}
+	action.Exec = &whisk.Exec{Kind: "blackbox", Image: "hugy718/wsk-blackbox-action:latest"}
+	_, resp, err := client.Actions.InsertFm(action, false)
+	// _, resp, err := client.Actions.Insert(action, false)
+
+	// invoke action
+	// res, resp, err := client.Actions.InvokeFm(action.Name, body, false, false)
+	// res, resp, err := client.Actions.InvokeFm(action.Name, body, true, true)
+	// res, resp, err := client.Actions.Invoke(action.Name, body, false, false)
+	// res, resp, err := client.Actions.Invoke(action.Name, nil, true, true)
+
+	// delete action
+	// resp, err := client.Actions.DeleteFm(action.Name)
+	// resp, err := client.Actions.Delete(action.Name)
+
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
 
-	fmt.Println("Returned with status: ", resp.Status)
-	fmt.Printf("Returned actions: \n %+v", actions)
+	// fmt.Printf("returned result: %v\n", res)
+	fmt.Printf("returned response: %v\n", resp)
 
 }
